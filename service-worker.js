@@ -1,4 +1,4 @@
-const CACHE_NAME = "skanda-audiobook-v1";
+const CACHE_NAME = "skanda-audiobook-v2";
 const ASSETS = [
   "./index.html",
   "./manifest.json",
@@ -25,6 +25,21 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  const isHTML = event.request.mode === "navigate" || (event.request.headers.get("accept") || "").includes("text/html");
+  if (isHTML) {
+    // Network-first for the page itself, so updates show up immediately.
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+  // Cache-first for everything else (icons, audio, manifest) — fine to keep offline.
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
